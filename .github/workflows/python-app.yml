@@ -1,0 +1,175 @@
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, MessageHandler, CallbackQueryHandler, CommandHandler, filters
+
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+
+TOKEN = "8839361164:AAH_bC4B3d2reCilKhyvMsFjMwGebTYF1Bg"
+
+REQUIRED_CHANNEL = "@Demogroup764"  
+ALL_CHANNELS_LINK = "https://t.me/addlist/F5fxxWGnll43MDY1"  
+PRIVATE_CHANNEL_LINK = "https://t.me/+6IUNAPlgpP42NTdl"
+
+CATEGORY_CHANNELS = {
+    "hot": "@kawsaralom76410",
+    "cid": "@CID_Season_S2o",
+    "natok": "@kawsar7641",
+    "bangla": "@kawsar7641",
+    "hindi": "@kawsar7641"
+}
+
+# ডাটাবেজ যেখানে ফাইল আইডি জমা হবে
+DATABASE = {
+    "cid": [],
+    "hot": [],
+    "natok": [],
+    "bangla": [],
+    "hindi": []
+}
+
+async def moderate_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
+    if not message or not message.text:
+        return
+    if message.chat.type in ["group", "supergroup"]:
+        text = message.text.lower()
+        if "http://" in text or "https://" in text or "t.me/" in text or "@" in text:
+            try:
+                await message.delete()
+            except Exception as e:
+                print(f"Error: {e}")
+
+async def auto_receive_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
+    if not message:
+        return
+
+    caption = (message.caption or message.text or "").lower()
+    file_id = None
+    media_type = "video"
+
+    # ভিডিও বা ছবি যেকোনো একটি পেলেই সেটি শনাক্ত করবে
+    if message.video:
+        file_id = message.video.file_id
+        media_type = "video"
+    elif message.photo:
+        file_id = message.photo[-1].file_id  # সবচেয়ে হাই কোয়ালিটির ছবি নিবে
+        media_type = "photo"
+
+    if file_id:
+        if "#cid" in caption:
+            if file_id not in DATABASE["cid"]:
+                DATABASE["cid"].append(file_id)
+            await message.reply_text("✅ সিআইডি (CID) মিডিয়া সফলভাবে সেভ হয়েছে!")
+        elif "#hot" in caption:
+            if file_id not in DATABASE["hot"]:
+                DATABASE["hot"].append(file_id)
+            await message.reply_text("✅ হট মিডিয়া সফলভাবে সেভ হয়েছে!")
+        elif "#natok" in caption:
+            if file_id not in DATABASE["natok"]:
+                DATABASE["natok"].append(file_id)
+            await message.reply_text("✅ নাটক মিডিয়া সফলভাবে সেভ হয়েছে!")
+        elif "#bangla" in caption:
+            if file_id not in DATABASE["bangla"]:
+                DATABASE["bangla"].append(file_id)
+            await message.reply_text("✅ বাংলা মিডিয়া সফলভাবে সেভ হয়েছে!")
+        elif "#hindi" in caption:
+            if file_id not in DATABASE["hindi"]:
+                DATABASE["hindi"].append(file_id)
+            await message.reply_text("✅ হিন্দি মিডিয়া সফলভাবে সেভ হয়েছে!")
+
+async def check_subscription(user_id, context):
+    try:
+        member = await context.bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
+        if member.status in ["member", "administrator", "creator"]:
+            return True
+    except:
+        pass
+    return False
+
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if not await check_subscription(user_id, context):
+        keyboard = [
+            [InlineKeyboardButton("📢 প্রধান চ্যানেলে জয়েন করুন", url=f"https://t.me/{REQUIRED_CHANNEL.replace('@', '')}")],
+            [InlineKeyboardButton("📂 ১ ক্লিকে সব চ্যানেলের ফোল্ডার লিংক", url=ALL_CHANNELS_LINK)],
+            [InlineKeyboardButton("🔄 জয়েন করে এখানে ক্লিক করুন", callback_data="check_join")]
+        ]
+        await update.message.reply_text(
+            "⚠️ 𝕾𝖙𝖔𝖕! ⚠️\n\n✨ আমাদের বটের এক্সক্লুসিভ কনটেন্ট দেখতে হলে অবশ্যই আমাদের মূল চ্যানেলে জয়েন থাকতে হবে।\n\n👇 আগে নিচের বাটনে ক্লিক করে চ্যানেলে জয়েন করুন:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return
+
+    keyboard = [
+        [InlineKeyboardButton("🔥 ┋ হট ভিডিও কালেকশন ┋ 🔥", callback_data="hot_videos")],
+        [InlineKeyboardButton("🕵️‍♂️ ┋ সিআইডি (CID) এপিসোড ┋ 🕵️‍♂️", callback_data="cid_videos")],
+        [InlineKeyboardButton("🎭 ┋ ব্যাচেলার পয়েন্ট নাটক ┋ 🎭", callback_data="natok_videos")],
+        [InlineKeyboardButton("🎬 ┋ বাংলা সিনেমা ও মুভি ┋ 🎬", callback_data="bangla_dubbed")],
+        [InlineKeyboardButton("🍿 ┋ হিন্দি ড্রামা মুভি ┋ 🍿", callback_data="hindi_movies")],
+        [InlineKeyboardButton("📂 এক ক্লিকে সব চ্যানেলে জয়েন করুন", url=ALL_CHANNELS_LINK)]
+    ]
+    await update.message.reply_text(
+        "🌟 𝓦𝓮𝓵𝓬𝓸𝓶𝓮 𝓽𝓸 𝓞𝓾𝓻 𝓜𝓮𝓭𝓲𝓪 𝓑𝓸𝓽! 🌟\n\n✨ আপনার পছন্দের ক্যাটাগরি নিচে দেওয়া হলো, যেকোনো একটি ম্যাজিক বাটনে ক্লিক করুন 👇",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+
+    if query.data == "check_join":
+        if await check_subscription(user_id, context):
+            await query.message.delete()
+            await start_command(update, context)
+        else:
+            await query.answer("❌ আপনি এখনো চ্যানেলে জয়েন করেননি!", show_alert=True)
+        return
+
+    category_map = {
+        "hot_videos": ("hot", "🔥 হট ভিডিও"),
+        "cid_videos": ("cid", "🕵️‍♂️ সিআইডি এপিসোড"),
+        "natok_videos": ("natok", "🎭 ব্যাচেলার পয়েন্ট নাটক"),
+        "bangla_dubbed": ("bangla", "🎬 বাংলা সিনেমা ও মুভি"),
+        "hindi_movies": ("hindi", "🍿 হিন্দি ড্রামা মুভি")
+    }
+
+    if query.data in category_map:
+        key, name = category_map[query.data]
+        items = DATABASE.get(key, [])
+        channel_username = CATEGORY_CHANNELS.get(key, REQUIRED_CHANNEL)
+        
+        if items:
+            media_id = items[-1]
+            channel_keyboard = [[InlineKeyboardButton("📢 এই চ্যানেলে জয়েন করুন", url=f"https://t.me/{channel_username.replace('@', '')}")]]
+            
+            # মেমোরিতে থাকা ফাইলটি ভিডিও নাকি ছবি তা চেক করে সেই অনুযায়ী পাঠাবে
+            try:
+                await context.bot.send_video(
+                    chat_id=query.message.chat_id, 
+                    video=media_id, 
+                    caption=f"📥 আপনার কাঙ্ক্ষিত {name}টি দেওয়া হলো!\n\n🔗 আরও পেতে জয়েন করুন: {channel_username}",
+                    reply_markup=InlineKeyboardMarkup(channel_keyboard)
+                )
+            except:
+                try:
+                    await context.bot.send_photo(
+                        chat_id=query.message.chat_id, 
+                        photo=media_id, 
+                        caption=f"📥 আপনার কাঙ্ক্ষিত {name}টি দেওয়া হলো!\n\n🔗 আরও পেতে জয়েন করুন: {channel_username}",
+                        reply_markup=InlineKeyboardMarkup(channel_keyboard)
+                    )
+                except Exception as e:
+                    await query.message.reply_text(f"❌ মিডিয়া পাঠাতে সমস্যা হয়েছে: {e}")
+        else:
+            await query.message.reply_text(f"❌ এই মুহূর্তে {name}-এর কোনো কনটেন্ট ডাটাবেজে জমা হয়নি!\n\n💡 সমাধান: আপনার চ্যানেল থেকে একটি ছবি বা ভিডিও `#cid` লিখে এই বটের চ্যাটে ফরোয়ার্ড করে দিন, তাহলে সাথে সাথে সেভ হয়ে যাবে।")
+
+if __name__ == '__main__':
+    app = ApplicationBuilder().token(TOKEN).build()
+
+    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), moderate_group))
+    # ছবি এবং ভিডিও দুটোই রিসিভ করার ফিল্টার একসাথে যুক্ত করা হলো
+    app.add_handler(MessageHandler(filters.VIDEO | filters.PHOTO, auto_receive_media))
+    app.add_handler(CommandHandler("start", start_command))
+    app.add_handler(CallbackQueryHandler(button
